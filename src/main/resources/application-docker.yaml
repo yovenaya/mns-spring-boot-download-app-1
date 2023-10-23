@@ -1,0 +1,5 @@
+server:
+  port: 8080
+
+gateway:
+  spring-boot-app-2: http://spring-boot-app-2:8080/app2

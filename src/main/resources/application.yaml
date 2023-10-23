@@ -1,0 +1,13 @@
+server:
+  port: 9090
+  servlet:
+    context-path: /app1
+
+gateway:
+  spring-boot-app-2: http://localhost:9091/app2
+
+mns:
+  demo:
+    document:
+      download:
+        buffer-size: 8192
