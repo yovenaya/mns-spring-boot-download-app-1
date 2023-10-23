@@ -2,28 +2,26 @@ package mu.mns.demo.download.app1.controller;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import mu.mns.demo.download.app1.config.MultipartInputStreamFileResource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @RestController
@@ -33,6 +31,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class FileController {
 
     private final RestTemplate restTemplate;
+
+    @Qualifier("customRestTemplate")
+    private final RestTemplate customRestTemplate;
 
     /**
      * URL for the Spring Boot App 2.
@@ -89,7 +90,7 @@ public class FileController {
         StreamingResponseBody streamingResponseBody = outputStream -> {
             ResponseExtractor<OutputStream> responseExtractor = clientHttpResponse -> {
                 InputStream inputStream = clientHttpResponse.getBody();
-                httpServletResponse.addHeader("Content-Disposition","attachment; filename=" + filename);
+                httpServletResponse.addHeader("Content-Disposition", "attachment; filename=" + filename);
                 httpServletResponse.addHeader("Content-Length", clientHttpResponse.getHeaders().getFirst("Content-Length"));
                 StreamUtils.copy(inputStream, outputStream);
                 return null;
@@ -99,5 +100,33 @@ public class FileController {
         };
 
         return ResponseEntity.ok(streamingResponseBody);
+    }
+
+    @SneakyThrows
+    @PostMapping("/upload/bad")
+    public void uploadBad(@RequestParam("file") MultipartFile file) {
+        String endpoint = springBootApp2Url + "/file/upload/with_multipart_file";
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> request = new LinkedMultiValueMap<>();
+        request.add("file", new MultipartInputStreamFileResource(file.getInputStream(), file.getOriginalFilename()));
+        HttpEntity<MultiValueMap<String, Object>> httpEntity = new HttpEntity<>(request, httpHeaders);
+
+        restTemplate.exchange(endpoint, HttpMethod.POST, httpEntity, Void.class);
+    }
+
+    @SneakyThrows
+    @PostMapping("/upload/good")
+    public void uploadGood(@RequestParam("file") MultipartFile file) {
+        String endpoint = springBootApp2Url + "/file/upload/stream";
+        InputStreamResource inputStreamResource = new InputStreamResource(file.getInputStream());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("filename", file.getOriginalFilename());
+        HttpEntity<InputStreamResource> httpEntity = new HttpEntity<>(inputStreamResource, headers);
+
+        customRestTemplate.exchange(endpoint, HttpMethod.POST, httpEntity, InputStreamResource.class);
     }
 }

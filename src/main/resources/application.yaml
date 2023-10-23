@@ -3,6 +3,13 @@ server:
   servlet:
     context-path: /app1
 
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 4GB
+      max-request-size: 4GB
+
 gateway:
   spring-boot-app-2: http://localhost:9091/app2
 
